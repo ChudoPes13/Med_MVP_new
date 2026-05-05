@@ -46,6 +46,16 @@ def test_schedule_shift_has_future_slots():
     assert book.find_slots("терапевт", "в субботу утром", limit=1)
 
 
+def test_flexible_slot_ignores_demo_schedule():
+    book = ScheduleBook(settings)
+    slot = book.find_slots("гастроэнтеролог", "в воскресенье в 23:30", limit=1)[0]
+    assert slot.source == "test_flexible"
+    assert slot.doctor.specialty == "гастроэнтеролог"
+    assert slot.starts_at.weekday() == 6
+    assert slot.starts_at.hour == 23
+    assert slot.starts_at.minute == 30
+
+
 def test_basic_booking_flow(tmp_path):
     import asyncio
 
