@@ -81,7 +81,38 @@ def test_basic_booking_flow(tmp_path):
     assert session.status == "finalized"
     assert session.slots["specialty"] == "гастроэнтеролог"
     assert session.slots["phone"] == "+79991112233"
+    assert session.slots["first_name"] == "Георгий"
+    assert response["should_close"] is True
+    assert response["text"] == "Спасибо, Георгий, запись создана. Желаем Вам хорошего здоровья. При необходимости перезвоните. До свидания"
     assert session.saved_path
+
+
+def test_finalized_session_does_not_continue_dialog(tmp_path):
+    import asyncio
+
+    dialog, store = make_dialog(tmp_path)
+    session = store.get_or_create("closed-session", "medcenter")
+    dialog.start_message(session)
+    asyncio.run(
+        run_flow(
+            dialog,
+            session,
+            [
+                "Иванов Иван Иванович",
+                "болит живот",
+                "40 лет",
+                "завтра в 15",
+                "да",
+                "+7 999 111 22 33",
+                "да",
+            ],
+        )
+    )
+    response = asyncio.run(dialog.process_text(session, "а еще вопрос"))
+    assert session.status == "finalized"
+    assert session.slots["first_name"] == "Иван"
+    assert response["event"] == "conversation_closed"
+    assert response["text"] == ""
 
 def test_emergency_goes_to_operator(tmp_path):
     import asyncio

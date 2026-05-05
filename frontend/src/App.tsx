@@ -140,11 +140,40 @@ export function App() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const workletRef = useRef<AudioWorkletNode | null>(null);
   const playerContextRef = useRef<AudioContext | null>(null);
+  const activeTtsSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
+  const lastBargeInAtRef = useRef(0);
   const recordingRef = useRef(false);
 
   const addLog = useCallback((direction: LogEntry["direction"], line: string) => {
     setLogs((prev) => [{ ts: timestamp(), direction, text: line }, ...prev].slice(0, 300));
   }, []);
+
+  const stopTtsPlayback = useCallback((reason: string, notifyBackend = true) => {
+    const sources = activeTtsSourcesRef.current;
+    const hadSources = sources.size > 0;
+    if (hadSources) {
+      sources.forEach((source) => {
+        try {
+          source.stop();
+        } catch {
+          // Source may already be stopped by the AudioContext.
+        }
+        try {
+          source.disconnect();
+        } catch {
+          // Ignore disconnected nodes.
+        }
+      });
+      sources.clear();
+    }
+    lastBargeInAtRef.current = Date.now();
+    if (notifyBackend && wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ event: "barge_in", reason }));
+    }
+    if (hadSources) {
+      addLog("system", "Озвучка прервана");
+    }
+  }, [addLog]);
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -158,6 +187,7 @@ export function App() {
     };
     ws.onclose = () => {
       setConnected(false);
+      stopTtsPlayback("websocket_closed", false);
       addLog("system", "WebSocket отключен");
     };
     ws.onerror = () => addLog("error", "Ошибка WebSocket");
@@ -170,6 +200,13 @@ export function App() {
           const source = ctx.createBufferSource();
           source.buffer = decoded;
           source.connect(ctx.destination);
+          source.onended = () => {
+            activeTtsSourcesRef.current.delete(source);
+          };
+          activeTtsSourcesRef.current.add(source);
+          if (ctx.state === "suspended") {
+            await ctx.resume();
+          }
           source.start();
         } catch (error) {
           addLog("error", `Не удалось проиграть TTS: ${String(error)}`);
@@ -191,10 +228,13 @@ export function App() {
         addLog("system", `Сессия ${payload.session_id}`);
       } else if (payload.event === "tts_error") {
         addLog("error", payload.message);
+      } else if (payload.event === "conversation_closed") {
+        setPhase(payload.status ?? "finalized");
+        addLog("system", "Разговор завершен");
       }
     };
     wsRef.current = ws;
-  }, [addLog, sessionId]);
+  }, [addLog, sessionId, stopTtsPlayback]);
 
   useEffect(() => {
     fetch(`${API_BASE}/admin/vad-settings`)
@@ -213,12 +253,13 @@ export function App() {
   }, [addLog, vad]);
 
   const resetSession = useCallback(() => {
+    stopTtsPlayback("reset_session");
     wsRef.current?.close();
     setSessionId(crypto.randomUUID());
     setSlots({});
     setPhase("idle");
     addLog("system", "Создана новая локальная сессия");
-  }, [addLog]);
+  }, [addLog, stopTtsPlayback]);
 
   const startMic = useCallback(async () => {
     connect();
@@ -241,6 +282,14 @@ export function App() {
         rms: number;
       };
       setRms(chunkRms);
+      if (
+        recordingRef.current &&
+        activeTtsSourcesRef.current.size > 0 &&
+        chunkRms >= Math.max(DEFAULT_VAD.vad_energy_threshold * 3, 0.012) &&
+        Date.now() - lastBargeInAtRef.current > 900
+      ) {
+        stopTtsPlayback("speech_detected");
+      }
       if (!recordingRef.current || wsRef.current?.readyState !== WebSocket.OPEN) {
         return;
       }
@@ -257,12 +306,17 @@ export function App() {
     recordingRef.current = true;
     setRecording(true);
     addLog("system", "Микрофон включен, отправка PCM16 активна");
-  }, [addLog, connect]);
+  }, [addLog, connect, stopTtsPlayback]);
+
+  const flushAudio = useCallback(() => {
+    stopTtsPlayback("flush_audio");
+    wsRef.current?.send(JSON.stringify({ event: "flush_audio" }));
+  }, [stopTtsPlayback]);
 
   const stopMic = useCallback(() => {
     recordingRef.current = false;
     setRecording(false);
-    wsRef.current?.send(JSON.stringify({ event: "flush_audio" }));
+    flushAudio();
     workletRef.current?.disconnect();
     streamRef.current?.getTracks().forEach((track) => track.stop());
     audioContextRef.current?.close();
@@ -270,7 +324,7 @@ export function App() {
     streamRef.current = null;
     audioContextRef.current = null;
     addLog("system", "Микрофон выключен");
-  }, [addLog]);
+  }, [addLog, flushAudio]);
 
   const sendText = useCallback(() => {
     connect();
@@ -278,10 +332,11 @@ export function App() {
     if (!value) {
       return;
     }
+    stopTtsPlayback("user_text");
     wsRef.current?.send(JSON.stringify({ event: "user_text", text: value }));
     addLog("user", value);
     setText("");
-  }, [addLog, connect, text]);
+  }, [addLog, connect, stopTtsPlayback, text]);
 
   const slotEntries = useMemo(() => Object.entries(slots), [slots]);
 
@@ -313,7 +368,7 @@ export function App() {
               {recording ? <MicOff size={18} /> : <Mic size={18} />}
               <span>{recording ? "Стоп" : "Микрофон"}</span>
             </button>
-            <button onClick={() => wsRef.current?.send(JSON.stringify({ event: "flush_audio" }))} title="Отправить текущий аудио-сегмент">
+            <button onClick={flushAudio} title="Отправить текущий аудио-сегмент">
               <Square size={18} />
               <span>Flush</span>
             </button>

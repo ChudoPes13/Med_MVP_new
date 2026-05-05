@@ -82,6 +82,7 @@ class Settings:
     silero_tts_speaker: str = os.getenv("SILERO_TTS_SPEAKER", "kseniya")
     silero_tts_sample_rate: int = _int("SILERO_TTS_SAMPLE_RATE", 48000)
     tts_enabled: bool = _bool("TTS_ENABLED", True)
+    warmup_on_startup: bool = _bool("WARMUP_ON_STARTUP", True)
 
     pcm_sample_rate: int = _int("PCM_SAMPLE_RATE", 16000)
 

@@ -6,6 +6,7 @@ import numpy as np
 
 from .audio import wav_bytes_from_float32
 from .config import Settings
+from .text_preprocessor import RussianTextPreprocessor
 
 log = logging.getLogger(__name__)
 
@@ -14,6 +15,7 @@ class SileroTts:
     def __init__(self, settings: Settings):
         self.settings = settings
         self._model = None
+        self._preprocessor = RussianTextPreprocessor()
 
     @property
     def loaded(self) -> bool:
@@ -41,9 +43,10 @@ class SileroTts:
         normalized = text.strip()
         if not normalized:
             return None
+        tts_text = self._preprocessor.preprocess(normalized)
         with torch.no_grad():
             audio = self._model.apply_tts(
-                text=normalized,
+                text=tts_text,
                 speaker=self.settings.silero_tts_speaker,
                 sample_rate=self.settings.silero_tts_sample_rate,
                 put_accent=True,
@@ -55,4 +58,3 @@ class SileroTts:
             audio_np = np.asarray(audio, dtype=np.float32)
         audio_np = audio_np.astype(np.float32, copy=False)
         return wav_bytes_from_float32(audio_np, self.settings.silero_tts_sample_rate)
-

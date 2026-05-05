@@ -54,6 +54,7 @@ FastAPI backend
 | TTS model | `v5_5_ru.pt` |
 | TTS source URL | `https://models.silero.ai/models/tts/ru/v5_5_ru.pt` |
 | TTS voice | `kseniya` |
+| Warm-up | `WARMUP_ON_STARTUP=true` |
 
 `distil-whisper/distil-large-v3.5-ct2` не используется как дефолт: на русском тестовом аудио дал непригодный результат, поэтому выбран multilingual CT2 large-v3-turbo.
 
@@ -65,6 +66,7 @@ FastAPI backend
 - Транскрипты, диалог, слоты, статусы и логи сохранять всегда.
 - `llama.cpp` не автозапускать внутри Docker.
 - Путь к `llama.cpp` и GGUF-модели задает заказчик на своем host.
+- Текст нормализуется через `num2words` только перед Silero TTS; текст ответа, transcript и JSON-сессия остаются исходными.
 
 ## VAD/VAC Настройки
 
@@ -92,8 +94,33 @@ FastAPI backend
 5. Подтверждение слота.
 6. Телефон.
 7. Финальное подтверждение.
+8. Завершение разговора.
 
 LLM используется не как источник фактов, а как слой мягкой переформулировки вопроса. Канонический смысл вопросов хранится в `config/question_style.json`; изменения должны быть минимальными и не должны менять смысл вопроса.
+
+После подтверждения всех полей backend выставляет `status=finalized`, сохраняет заявку, произносит финальную фразу и закрывает WebSocket:
+
+```text
+Спасибо, <Имя>, запись создана. Желаем Вам хорошего здоровья. При необходимости перезвоните. До свидания
+```
+
+`<Имя>` берется из ФИО и доступно в шаблонах как `{first_name}`. Для `Иванов Иван Иванович` используется `Иван`; для короткого ответа `Георгий` используется `Георгий`.
+
+## Прерывание И Отмена Ответа
+
+Прерывание реализовано на двух уровнях:
+
+- frontend хранит активные TTS audio source и немедленно останавливает их при речи пользователя поверх озвучки, ручном flush или текстовом вводе;
+- frontend отправляет WebSocket event `barge_in`;
+- backend отменяет текущую response task, поэтому новая реплика может прервать еще не законченную LLM/TTS-задачу.
+
+Если микрофон слышит колонки, браузер может ошибочно принять TTS за речь пользователя. Поэтому для демонстрации предпочтительны наушники или хорошая echo cancellation.
+
+## Warm-Up
+
+При `WARMUP_ON_STARTUP=true` startup прогревает Silero VAD, Whisper STT, Silero TTS и LLM endpoint. Результат виден в `GET /health` в поле `warmup`.
+
+LLM warm-up не валит приложение, если `llama-server` еще не поднят: статус будет `unavailable` или `failed`, а сам backend продолжит работу.
 
 ## Расписание И Врачи
 
@@ -130,6 +157,7 @@ LLM используется не как источник фактов, а ка�
 | `app/vad.py` | VAD segmenter and exact VAD preset |
 | `app/stt.py` | faster-whisper direct PCM transcription |
 | `app/tts.py` | Silero package load and WAV synthesis |
+| `app/text_preprocessor.py` | TTS-only Russian text preprocessing and `num2words` |
 | `app/dialog.py` | Dialogue state machine |
 | `app/schedule.py` | Doctors, specialty matching, flexible MVP slots |
 | `app/session_store.py` | JSON session persistence |

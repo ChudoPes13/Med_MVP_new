@@ -5,6 +5,7 @@ import json
 import logging
 import uuid
 from pathlib import Path
+from contextlib import suppress
 
 from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -51,6 +52,7 @@ tts = SileroTts(settings)
 dialog = DialogManager(store, questions, schedule, llm, settings.symptom_map_path)
 vad_settings = VadSettings.from_settings(settings)
 segmenters: dict[str, VadSegmenter] = {}
+warmup_state: dict[str, str] = {"status": "not_started"}
 
 
 @app.on_event("startup")
@@ -58,6 +60,57 @@ async def startup() -> None:
     log.info("MedJarvis backend starting")
     settings.data_dir.mkdir(parents=True, exist_ok=True)
     settings.models_dir.mkdir(parents=True, exist_ok=True)
+    if settings.warmup_on_startup:
+        await warmup_models()
+
+
+async def warmup_models() -> None:
+    warmup_state.clear()
+    warmup_state.update({"status": "running"})
+    log.info("Model warm-up started")
+
+    try:
+        await asyncio.to_thread(VadSegmenter, settings, vad_settings)
+        warmup_state["vad"] = "ok"
+    except Exception as exc:
+        warmup_state["vad"] = f"failed: {exc}"
+        log.warning("VAD warm-up failed: %s", exc)
+
+    try:
+        silence = bytes(settings.pcm_sample_rate * 2)
+        await asyncio.to_thread(stt.transcribe_pcm16, silence)
+        warmup_state["stt"] = "ok"
+    except Exception as exc:
+        warmup_state["stt"] = f"failed: {exc}"
+        log.warning("STT warm-up failed: %s", exc)
+
+    try:
+        if settings.tts_enabled:
+            await asyncio.to_thread(tts.synthesize_wav, "Здравствуйте.")
+        warmup_state["tts"] = "ok"
+    except Exception as exc:
+        warmup_state["tts"] = f"failed: {exc}"
+        log.warning("TTS warm-up failed: %s", exc)
+
+    try:
+        if await llm.health():
+            await llm.chat(
+                [
+                    {"role": "system", "content": "Ответь одним словом."},
+                    {"role": "user", "content": "Готов?"},
+                ],
+                temperature=0.0,
+                max_tokens=8,
+            )
+            warmup_state["llm"] = "ok"
+        else:
+            warmup_state["llm"] = "unavailable"
+    except Exception as exc:
+        warmup_state["llm"] = f"failed: {exc}"
+        log.warning("LLM warm-up failed: %s", exc)
+
+    warmup_state["status"] = "done"
+    log.info("Model warm-up finished: %s", warmup_state)
 
 
 @app.get("/health")
@@ -69,6 +122,7 @@ async def health() -> dict:
         "stt_loaded": stt.loaded,
         "tts_loaded": tts.loaded,
         "llm_ok": await llm.health(),
+        "warmup": warmup_state,
         "vad_settings": vad_settings.asdict(),
     }
 
@@ -126,6 +180,9 @@ async def post_vad_settings(
 
 
 async def _send_assistant(ws: WebSocket, response: dict) -> None:
+    if response.get("event") == "conversation_closed":
+        await ws.send_json(response)
+        return
     await ws.send_json(response)
     await ws.send_json({"event": "slots_update", "slots": response["slots"], "phase": response["phase"]})
     if settings.tts_enabled:
@@ -138,6 +195,9 @@ async def _send_assistant(ws: WebSocket, response: dict) -> None:
         except Exception as exc:
             log.warning("TTS failed: %s", exc)
             await ws.send_json({"event": "tts_error", "message": str(exc)})
+    if response.get("should_close"):
+        await ws.send_json({"event": "conversation_closed", "status": response.get("status")})
+        await ws.close(code=1000, reason="finalized")
 
 
 async def _handle_transcript(ws: WebSocket, session_id: str, text: str) -> None:
@@ -161,6 +221,32 @@ async def websocket_endpoint(
     session = store.get_or_create(sid, clinic_id or settings.clinic_id)
     segmenter = VadSegmenter(settings, vad_settings)
     segmenters[sid] = segmenter
+    response_task: asyncio.Task | None = None
+
+    async def cancel_response(reason: str) -> None:
+        nonlocal response_task
+        if response_task and not response_task.done():
+            response_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await response_task
+            log.info("Cancelled assistant response for %s: %s", sid, reason)
+        response_task = None
+
+    def track_response(task: asyncio.Task) -> None:
+        def _done(done: asyncio.Task) -> None:
+            if done.cancelled():
+                return
+            exc = done.exception()
+            if exc:
+                log.warning("Assistant response task failed for %s: %s", sid, exc)
+
+        task.add_done_callback(_done)
+
+    async def start_response(text: str, reason: str) -> None:
+        nonlocal response_task
+        await cancel_response(reason)
+        response_task = asyncio.create_task(_handle_transcript(ws, sid, text))
+        track_response(response_task)
 
     try:
         await ws.send_json({"event": "session_started", "session_id": sid, "vad_settings": vad_settings.asdict()})
@@ -186,7 +272,7 @@ async def websocket_endpoint(
                 speech = segmenter.accept_pcm16(pcm)
                 if speech:
                     text = await asyncio.to_thread(stt.transcribe_pcm16, speech)
-                    await _handle_transcript(ws, sid, text)
+                    await start_response(text, "new_audio_transcript")
                 continue
 
             if "text" in message and message["text"] is not None:
@@ -197,12 +283,15 @@ async def websocket_endpoint(
 
                 event = payload.get("event")
                 if event == "user_text":
-                    await _handle_transcript(ws, sid, str(payload.get("text", "")))
+                    await start_response(str(payload.get("text", "")), "new_user_text")
                 elif event == "flush_audio":
                     speech = segmenter.flush()
                     if speech:
                         text = await asyncio.to_thread(stt.transcribe_pcm16, speech)
-                        await _handle_transcript(ws, sid, text)
+                        await start_response(text, "flush_audio")
+                elif event == "barge_in":
+                    await cancel_response(str(payload.get("reason", "barge_in")))
+                    await ws.send_json({"event": "barge_in_ack"})
                 elif event == "ping":
                     await ws.send_json({"event": "pong"})
                 else:
@@ -210,6 +299,7 @@ async def websocket_endpoint(
     except WebSocketDisconnect:
         log.info("WebSocket disconnected: %s", sid)
     finally:
+        await cancel_response("disconnect")
         segmenters.pop(sid, None)
 
 

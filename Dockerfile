@@ -85,7 +85,8 @@ ENV APP_HOST=0.0.0.0 \
     SILERO_TTS_PATH=/app/models/tts/v5_5_ru.pt \
     SILERO_TTS_DEVICE=cuda \
     SILERO_TTS_SPEAKER=kseniya \
-    TTS_ENABLED=true
+    TTS_ENABLED=true \
+    WARMUP_ON_STARTUP=true
 
 EXPOSE 8000
 ENTRYPOINT ["/app/docker/entrypoint.sh"]

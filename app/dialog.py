@@ -81,6 +81,11 @@ class DialogManager:
 
     async def process_text(self, session: CallSession, text: str) -> dict[str, Any]:
         cleaned = self._clean_text(text)
+        if session.status == "finalized":
+            self.store.log_event(session, "ignored_after_finalized", {"text": cleaned})
+            self.store.save(session)
+            return self._response(session, "", event="conversation_closed")
+
         if not cleaned:
             msg = self.questions.get("ask_repeat", self._ctx(session))
             self.store.append_message(session, "assistant", msg, {"question_key": "ask_repeat"})
@@ -269,6 +274,8 @@ class DialogManager:
             if dst == "phone":
                 value = self._parse_phone(str(value)) or value
             session.slots[dst] = value
+            if dst == "fio":
+                session.slots["first_name"] = self._first_name_from_fio(str(value))
 
     def _parse_phone(self, text: str) -> str | None:
         match = PHONE_RE.search(text)
@@ -308,6 +315,33 @@ class DialogManager:
         if words[0] in blocked:
             return None
         return " ".join(words)
+
+    def _first_name_from_fio(self, fio: str) -> str:
+        words = [word.strip(" -") for word in fio.split() if word.strip(" -")]
+        if not words:
+            return ""
+        if len(words) >= 3 and self._looks_like_surname(words[0]):
+            return words[1].capitalize()
+        return words[0].capitalize()
+
+    def _looks_like_surname(self, word: str) -> bool:
+        lower = word.lower()
+        return lower.endswith(
+            (
+                "ов",
+                "ова",
+                "ев",
+                "ева",
+                "ин",
+                "ина",
+                "ын",
+                "ына",
+                "ский",
+                "ская",
+                "цкий",
+                "цкая",
+            )
+        )
 
     def _parse_complaint(self, text: str) -> str | None:
         cleaned = text.strip()
@@ -381,6 +415,7 @@ class DialogManager:
             "session_id": session.session_id,
             "turns": session.turns,
             "fio": session.slots.get("fio", ""),
+            "first_name": session.slots.get("first_name") or self._first_name_from_fio(str(session.slots.get("fio", ""))),
             "complaint": session.slots.get("complaint", ""),
             "age": session.slots.get("age", ""),
             "phone": session.slots.get("phone", ""),
@@ -388,13 +423,14 @@ class DialogManager:
             "slot_human": appointment.get("human", ""),
         }
 
-    def _response(self, session: CallSession, text: str) -> dict[str, Any]:
+    def _response(self, session: CallSession, text: str, event: str = "assistant_response") -> dict[str, Any]:
         return {
-            "event": "assistant_response",
+            "event": event,
             "text": text,
             "slots": session.slots,
             "phase": session.phase,
             "status": session.status,
             "question_key": session.question_key,
             "extra": session.extra,
+            "should_close": session.status == "finalized",
         }
