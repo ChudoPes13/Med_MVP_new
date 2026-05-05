@@ -47,6 +47,54 @@ Set-Location C:\ai25\Med_MVP_4
 .\scripts\start_all.ps1
 ```
 
+## Docker Для Заказчика
+
+Docker-образ запускает приложение, frontend, VAD/STT/TTS и хранение заявок. `llama-server` не стартует автоматически: его нужно поднять отдельно на машине заказчика, потому что путь к `llama.cpp` и GGUF-модели может отличаться.
+
+Ручной запуск `llama-server` на Windows:
+
+```powershell
+$env:LLAMA_CPP_DIR = "D:\path\to\llama.cpp-build"
+$env:LLAMA_MODEL_PATH = "D:\models\Ministral-3-3B-Instruct-2512-Q5_K_M.gguf"
+.\scripts\start_llama.ps1
+```
+
+Эквивалентная команда напрямую:
+
+```powershell
+D:\path\to\llama.cpp-build\llama-server.exe `
+  -m "D:\models\Ministral-3-3B-Instruct-2512-Q5_K_M.gguf" `
+  --host 0.0.0.0 `
+  --port 8080 `
+  --ctx-size 4096 `
+  --n-gpu-layers 99 `
+  --parallel 2 `
+  --flash-attn auto
+```
+
+После этого контейнер можно запускать так:
+
+```powershell
+docker compose -f docker-compose.customer.yml up -d
+```
+
+UI будет доступен на `http://localhost:8000`. В compose уже задан `LLAMA_BASE_URL=http://host.docker.internal:8080/v1`, чтобы контейнер обращался к host-level `llama-server`.
+
+Локальная сборка Docker-образа:
+
+```powershell
+.\scripts\docker_build_local.ps1
+```
+
+Скрипт положит Silero TTS модель в ignored `docker_assets/` и соберет образ `chudopes/medjarvis-registry:latest`.
+
+Для GitHub Actions Docker publish нужны secrets:
+
+- `DOCKERHUB_USERNAME`: `chudopes`
+- `DOCKERHUB_TOKEN`: Docker Hub access token
+- `TTS_MODEL_URL`: URL, откуда workflow скачает `v5_4_ru.pt`
+- `HF_TOKEN`: только если `TTS_MODEL_URL` ведет на приватный Hugging Face файл
+
 ## Проверки
 
 ```powershell

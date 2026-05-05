@@ -1,0 +1,25 @@
+services:
+  medjarvis:
+    image: chudopes/medjarvis-registry:latest
+    container_name: medjarvis-registry
+    restart: unless-stopped
+    gpus: all
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./sessions:/app/sessions
+      - ./logs:/app/logs
+    environment:
+      APP_TIMEZONE: Europe/Moscow
+      LLAMA_BASE_URL: http://host.docker.internal:8080/v1
+      LLAMA_MODEL: Ministral-3-3B-Instruct-2512-Q5_K_M.gguf
+      REQUIRE_GPU: "true"
+      WHISPER_COMPUTE_TYPE: int8
+      WLK_MIN_DURATION_REAL_SILENCE: "1.0"
+      VAD_ENERGY_THRESHOLD: "0.004"
+      VAD_SILENCE_RATIO: "0.45"
+      SILERO_VAD_THRESHOLD: "0.45"
+      SILERO_SPEECH_PAD_MS: "120"
+      SILERO_MIN_SILENCE_MS: "250"

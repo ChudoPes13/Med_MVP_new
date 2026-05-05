@@ -1,8 +1,8 @@
 $ErrorActionPreference = "Stop"
 
-$LlamaDir = "C:\Users\Master\Downloads\llama-b8955-bin-win-cuda-12.4-x64"
+$LlamaDir = if ($env:LLAMA_CPP_DIR) { $env:LLAMA_CPP_DIR } else { "C:\Users\Master\Downloads\llama-b8955-bin-win-cuda-12.4-x64" }
 $LlamaServer = Join-Path $LlamaDir "llama-server.exe"
-$ModelPath = "C:\ai25\v2v_RAG_gpt52\Ministral-3-3B-Instruct-2512-Q5_K_M.gguf"
+$ModelPath = if ($env:LLAMA_MODEL_PATH) { $env:LLAMA_MODEL_PATH } else { "C:\ai25\v2v_RAG_gpt52\Ministral-3-3B-Instruct-2512-Q5_K_M.gguf" }
 
 if (!(Test-Path $LlamaServer)) {
     throw "llama-server.exe not found: $LlamaServer"

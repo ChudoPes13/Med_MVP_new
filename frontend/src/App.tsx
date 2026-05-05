@@ -28,7 +28,7 @@ type VadSettings = {
   silero_min_silence_ms: number;
 };
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? "https://127.0.0.1:8000";
+const API_BASE = import.meta.env.VITE_API_BASE ?? window.location.origin;
 const WS_BASE = API_BASE.replace(/^http/, "ws");
 
 const DEFAULT_VAD: VadSettings = {

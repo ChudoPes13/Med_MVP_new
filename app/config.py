@@ -61,6 +61,7 @@ class Settings:
     docs_dir: Path = _path(os.getenv("DOCS_DIR"), "docs")
     config_dir: Path = _path(os.getenv("CONFIG_DIR"), "config")
     models_dir: Path = _path(os.getenv("MODELS_DIR"), "models")
+    static_dir: Path = _path(os.getenv("STATIC_DIR"), "frontend/dist")
 
     whisper_model: str = os.getenv("WHISPER_MODEL", "deepdml/faster-whisper-large-v3-turbo-ct2")
     whisper_local_dir: Path = _path(

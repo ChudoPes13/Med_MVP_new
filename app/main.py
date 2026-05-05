@@ -8,6 +8,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from .config import settings
 from .dialog import DialogManager
@@ -211,3 +212,6 @@ async def websocket_endpoint(
     finally:
         segmenters.pop(sid, None)
 
+
+if settings.static_dir.exists():
+    app.mount("/", StaticFiles(directory=settings.static_dir, html=True), name="frontend")

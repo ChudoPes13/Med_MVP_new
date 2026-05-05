@@ -8,7 +8,6 @@ from huggingface_hub import snapshot_download
 ROOT = Path(__file__).resolve().parents[1]
 WHISPER_REPO = "deepdml/faster-whisper-large-v3-turbo-ct2"
 WHISPER_DIR = ROOT / "models" / "whisper" / "faster-whisper-large-v3-turbo-ct2"
-GGUF_PATH = Path(r"C:\ai25\v2v_RAG_gpt52\Ministral-3-3B-Instruct-2512-Q5_K_M.gguf")
 
 
 def main() -> None:
@@ -21,10 +20,6 @@ def main() -> None:
         allow_patterns=["*.bin", "*.json", "*.txt", "*.model", "vocabulary.*"],
     )
     print("Whisper CT2 model is ready.")
-    if GGUF_PATH.exists():
-        print(f"Found local Ministral GGUF: {GGUF_PATH}")
-    else:
-        print(f"Ministral GGUF not found at {GGUF_PATH}; update scripts/start_llama.ps1 if needed.")
 
 
 if __name__ == "__main__":
