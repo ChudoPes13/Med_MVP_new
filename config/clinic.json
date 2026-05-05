@@ -1,0 +1,18 @@
+{
+  "id": "medcenter",
+  "name": "МедЦентр",
+  "mode": "general",
+  "timezone": "Europe/Moscow",
+  "phone": "+7-000-000-00-00",
+  "address": "Тестовая клиника для MVP",
+  "emergency_redirect": "103",
+  "requires_consent": false,
+  "appointment_duration_minutes": 20,
+  "supported_channels": ["browser_voice", "browser_text"],
+  "production_notes": [
+    "Аудио не сохраняется.",
+    "Заявки и полный диалог сохраняются в JSON.",
+    "Перевод на оператора в MVP фиксируется статусом needs_operator."
+  ]
+}
+
