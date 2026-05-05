@@ -9,7 +9,7 @@
 - Runtime полностью локальный.
 - STT: `deepdml/faster-whisper-large-v3-turbo-ct2`, `cuda`, `int8`.
 - LLM: локальный `llama-server` OpenAI-compatible на `http://127.0.0.1:8080/v1`.
-- TTS: `v5_4_ru.pt`, голос `kseniya`.
+- TTS: `v5_5_ru.pt`, голос `kseniya`.
 - Аудио не сохраняется. Диалог, транскрипты, слоты и события сохраняются в `sessions/*.json`.
 - VAD defaults жестко соответствуют `VAD.jpg`: `1.0`, `0.004`, `0.45`, `0.45`, `120`, `250`.
 
@@ -78,7 +78,7 @@ D:\path\to\llama.cpp-build\llama-server.exe `
 docker compose -f docker-compose.customer.yml up -d
 ```
 
-UI будет доступен на `http://localhost:8000`. В compose уже задан `LLAMA_BASE_URL=http://host.docker.internal:8080/v1`, чтобы контейнер обращался к host-level `llama-server`.
+UI будет доступен на `http://localhost:8000`. В compose задан `network_mode: host` и `LLAMA_BASE_URL=http://127.0.0.1:8080/v1`, чтобы контейнер обращался к host-level `llama-server` по стандартному localhost.
 
 Локальная сборка Docker-образа:
 
@@ -92,7 +92,7 @@ UI будет доступен на `http://localhost:8000`. В compose уже �
 
 - `DOCKERHUB_USERNAME`: `chudopes`
 - `DOCKERHUB_TOKEN`: Docker Hub access token
-- `TTS_MODEL_URL`: URL, откуда workflow скачает `v5_4_ru.pt`
+- `TTS_MODEL_URL`: URL, откуда workflow скачает `v5_5_ru.pt`, например `https://models.silero.ai/models/tts/ru/v5_5_ru.pt`
 - `HF_TOKEN`: только если `TTS_MODEL_URL` ведет на приватный Hugging Face файл
 
 ## Проверки

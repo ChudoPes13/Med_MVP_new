@@ -77,7 +77,7 @@ class Settings:
     llama_model: str = os.getenv("LLAMA_MODEL", "Ministral-3-3B-Instruct-2512-Q5_K_M.gguf")
     llama_timeout_sec: float = _float("LLAMA_TIMEOUT_SEC", 8.0)
 
-    silero_tts_path: Path = _path(os.getenv("SILERO_TTS_PATH"), "v5_4_ru.pt")
+    silero_tts_path: Path = _path(os.getenv("SILERO_TTS_PATH"), "v5_5_ru.pt")
     silero_tts_device: str = os.getenv("SILERO_TTS_DEVICE", "cuda")
     silero_tts_speaker: str = os.getenv("SILERO_TTS_SPEAKER", "kseniya")
     silero_tts_sample_rate: int = _int("SILERO_TTS_SAMPLE_RATE", 48000)

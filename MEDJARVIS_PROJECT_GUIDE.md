@@ -501,7 +501,7 @@ session_kb         = get_knowledge_base("dental_template")
 | Модель | Размер | Назначение |
 |--------|--------|------------|
 | `faster-whisper-large-v3-turbo` | ~1.5 GB | STT (речь → текст), кэш под `WHISPER_MODEL_CACHE_DIR` |
-| Файл Silero TTS (`SILERO_MODEL_PATH`, напр. `v5_4_ru.pt`) | ~150–300 MB | **Только TTS** (озвучка ответа) |
+| Файл Silero TTS (`SILERO_MODEL_PATH`, напр. `v5_5_ru.pt`) | ~150–300 MB | **Только TTS** (озвучка ответа) |
 | `Ministral-3-8B-Instruct-2512-Q4_K_M.gguf` (пример) | ~5 GB | LLM на llama-server |
 | Другие GGUF | по размеру | Резерв / сравнение моделей |
 
@@ -607,7 +607,7 @@ Start-Process "http://localhost:5173"
 CLINIC_ID=medexpress
 
 # LLM
-LLAMA_BASE_URL=http://host.docker.internal:8080/v1
+LLAMA_BASE_URL=http://127.0.0.1:8080/v1
 LLAMA_MODEL=Ministral-3-8B-Instruct-2512-Q4_K_M
 
 # STT (часть ключей дублирует пресет из §9)

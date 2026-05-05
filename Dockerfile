@@ -11,6 +11,7 @@ COPY frontend/ ./
 RUN npm run build
 
 FROM nvidia/cuda:${CUDA_VERSION}-runtime-ubuntu${UBUNTU_VERSION} AS runtime
+ARG SILERO_TTS_FILENAME=v5_5_ru.pt
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -45,7 +46,7 @@ COPY docker_assets/ /tmp/docker_assets/
 
 RUN chmod +x /app/docker/entrypoint.sh \
   && mkdir -p /app/models/tts /app/models/whisper /app/sessions /app/logs \
-  && if [ -f /tmp/docker_assets/models/tts/v5_4_ru.pt ]; then cp /tmp/docker_assets/models/tts/v5_4_ru.pt /app/models/tts/v5_4_ru.pt; fi \
+  && if [ -f "/tmp/docker_assets/models/tts/${SILERO_TTS_FILENAME}" ]; then cp "/tmp/docker_assets/models/tts/${SILERO_TTS_FILENAME}" "/app/models/tts/${SILERO_TTS_FILENAME}"; fi \
   && rm -rf /tmp/docker_assets
 
 RUN --mount=type=secret,id=tts_model_url,required=false \
@@ -53,16 +54,16 @@ RUN --mount=type=secret,id=tts_model_url,required=false \
     set -eu; \
     HF_TOKEN_VALUE=""; \
     if [ -s /run/secrets/hf_token ]; then HF_TOKEN_VALUE="$(cat /run/secrets/hf_token)"; fi; \
-    if [ ! -f /app/models/tts/v5_4_ru.pt ] && [ -s /run/secrets/tts_model_url ]; then \
+    if [ ! -f "/app/models/tts/${SILERO_TTS_FILENAME}" ] && [ -s /run/secrets/tts_model_url ]; then \
       TTS_URL="$(cat /run/secrets/tts_model_url)"; \
       if [ -n "${HF_TOKEN_VALUE}" ]; then \
-        curl -fL -H "Authorization: Bearer ${HF_TOKEN_VALUE}" -o /app/models/tts/v5_4_ru.pt "${TTS_URL}"; \
+        curl -fL -H "Authorization: Bearer ${HF_TOKEN_VALUE}" -o "/app/models/tts/${SILERO_TTS_FILENAME}" "${TTS_URL}"; \
       else \
-        curl -fL -o /app/models/tts/v5_4_ru.pt "${TTS_URL}"; \
+        curl -fL -o "/app/models/tts/${SILERO_TTS_FILENAME}" "${TTS_URL}"; \
       fi; \
     fi; \
     python /app/scripts/download_models.py; \
-    test -f /app/models/tts/v5_4_ru.pt
+    test -f "/app/models/tts/${SILERO_TTS_FILENAME}"
 
 ENV APP_HOST=0.0.0.0 \
     APP_PORT=8000 \
@@ -79,9 +80,9 @@ ENV APP_HOST=0.0.0.0 \
     WHISPER_DEVICE=cuda \
     WHISPER_COMPUTE_TYPE=int8 \
     WHISPER_LANGUAGE=ru \
-    LLAMA_BASE_URL=http://host.docker.internal:8080/v1 \
+    LLAMA_BASE_URL=http://127.0.0.1:8080/v1 \
     LLAMA_MODEL=Ministral-3-3B-Instruct-2512-Q5_K_M.gguf \
-    SILERO_TTS_PATH=/app/models/tts/v5_4_ru.pt \
+    SILERO_TTS_PATH=/app/models/tts/v5_5_ru.pt \
     SILERO_TTS_DEVICE=cuda \
     SILERO_TTS_SPEAKER=kseniya \
     TTS_ENABLED=true

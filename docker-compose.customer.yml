@@ -3,17 +3,14 @@ services:
     image: chudopes/medjarvis-registry:latest
     container_name: medjarvis-registry
     restart: unless-stopped
+    network_mode: host
     gpus: all
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    ports:
-      - "8000:8000"
     volumes:
       - ./sessions:/app/sessions
       - ./logs:/app/logs
     environment:
       APP_TIMEZONE: Europe/Moscow
-      LLAMA_BASE_URL: http://host.docker.internal:8080/v1
+      LLAMA_BASE_URL: http://127.0.0.1:8080/v1
       LLAMA_MODEL: Ministral-3-3B-Instruct-2512-Q5_K_M.gguf
       REQUIRE_GPU: "true"
       WHISPER_COMPUTE_TYPE: int8
