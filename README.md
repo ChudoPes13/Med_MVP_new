@@ -9,6 +9,7 @@
 - Репозиторий: `https://github.com/ChudoPes13/Med_MVP_new.git`, ветка `main`.
 - Docker image: `chudopes/medjarvis-registry:latest`.
 - GitHub Actions workflow: `.github/workflows/docker-publish.yml`.
+- Docker image собирается только через GitHub Actions. Локальный Docker build не используется.
 - Frontend и backend упакованы в один контейнер, UI доступен на `http://127.0.0.1:8000`.
 - LLM внешний: OpenAI-compatible `llama-server` на `http://127.0.0.1:8080/v1`.
 - STT: `deepdml/faster-whisper-large-v3-turbo-ct2`, CUDA, `int8`.
@@ -222,19 +223,9 @@ https://127.0.0.1:5173
 
 Локальные `cert.pem` и `cert-key.pem` используются только для dev HTTPS/WSS и не коммитятся.
 
-## Локальная Docker Сборка
-
-Обычно заказчику локальная сборка не нужна: используется готовый образ из Docker Hub. Для проверки своей сборки:
-
-```powershell
-.\scripts\docker_build_local.ps1
-```
-
-Скрипт подготовит `docker_assets/models/tts/v5_5_ru.pt`. Если файла нет локально, скачает его из `https://models.silero.ai/models/tts/ru/v5_5_ru.pt`.
-
 ## GitHub Actions Release
 
-Workflow `.github/workflows/docker-publish.yml` собирает и пушит Docker image при push в `main`.
+Workflow `.github/workflows/docker-publish.yml` собирает и пушит Docker image при push в `main`. Это единственный поддерживаемый способ сборки customer image.
 
 Нужные repository secrets:
 

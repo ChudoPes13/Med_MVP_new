@@ -21,6 +21,7 @@ Production-oriented MVP голосовой регистратуры медици
 - Локальная папка разработки: `C:\ai25\Med_MVP_4`.
 - Docker image для заказчика: `chudopes/medjarvis-registry:latest`.
 - CI/CD: GitHub Actions `.github/workflows/docker-publish.yml`.
+- Customer Docker image собирается только через GitHub Actions; локальный Docker build не является рабочим процессом проекта.
 - Один контейнер содержит backend, frontend, STT/VAD/TTS и static UI.
 - LLM не входит в контейнер: `llama-server` запускается отдельно на хосте.
 
@@ -199,7 +200,7 @@ LLM warm-up не валит приложение, если `llama-server` еще
 
 ## Docker Release
 
-GitHub Actions собирает Docker image на push в `main`.
+GitHub Actions собирает Docker image на push в `main`. Локальная Docker-сборка не используется: для заказчика всегда берется опубликованный образ из Docker Hub.
 
 Repository secrets:
 
