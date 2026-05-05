@@ -162,6 +162,13 @@ LLM используется не как источник фактов, а ка�
 
 Дефолт проекта остается `http://127.0.0.1:8080/v1`.
 
+Официальные ссылки для первичной подготовки окружения:
+
+- Docker Engine Ubuntu: `https://docs.docker.com/installation/ubuntulinux/`;
+- NVIDIA Container Toolkit: `https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/`;
+- Docker host network driver: `https://docs.docker.com/engine/network/drivers/host/`;
+- Docker Desktop Windows: `https://docs.docker.com/desktop/setup/install/windows-install/`.
+
 ## Docker Release
 
 GitHub Actions собирает Docker image на push в `main`.

@@ -29,6 +29,13 @@
 - рабочий `llama-server` из `llama.cpp`;
 - GGUF-модель, например `Ministral-3-3B-Instruct-2512-Q5_K_M.gguf`.
 
+Официальные инструкции, которые стоит использовать при первичной установке окружения:
+
+- Docker Engine Ubuntu: `https://docs.docker.com/installation/ubuntulinux/`;
+- NVIDIA Container Toolkit: `https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/`;
+- Docker host network driver: `https://docs.docker.com/engine/network/drivers/host/`;
+- Docker Desktop Windows: `https://docs.docker.com/desktop/setup/install/windows-install/`.
+
 Для Windows 11 тестов нужен Docker Desktop с WSL2 и GPU support. Если используется `network_mode: host`, в Docker Desktop должна быть включена поддержка host networking. Если host networking недоступен, см. раздел "Windows fallback".
 
 ### 2. Подготовить Папку
