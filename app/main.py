@@ -272,7 +272,7 @@ async def websocket_endpoint(
                 speech = segmenter.accept_pcm16(pcm)
                 if speech:
                     text = await asyncio.to_thread(stt.transcribe_pcm16, speech)
-                    await start_response(text, "new_audio_transcript")
+                    await _handle_transcript(ws, sid, text)
                 continue
 
             if "text" in message and message["text"] is not None:
@@ -288,7 +288,7 @@ async def websocket_endpoint(
                     speech = segmenter.flush()
                     if speech:
                         text = await asyncio.to_thread(stt.transcribe_pcm16, speech)
-                        await start_response(text, "flush_audio")
+                        await _handle_transcript(ws, sid, text)
                 elif event == "barge_in":
                     await cancel_response(str(payload.get("reason", "barge_in")))
                     await ws.send_json({"event": "barge_in_ack"})

@@ -141,7 +141,6 @@ export function App() {
   const workletRef = useRef<AudioWorkletNode | null>(null);
   const playerContextRef = useRef<AudioContext | null>(null);
   const activeTtsSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
-  const lastBargeInAtRef = useRef(0);
   const recordingRef = useRef(false);
 
   const addLog = useCallback((direction: LogEntry["direction"], line: string) => {
@@ -166,7 +165,6 @@ export function App() {
       });
       sources.clear();
     }
-    lastBargeInAtRef.current = Date.now();
     if (notifyBackend && wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ event: "barge_in", reason }));
     }
@@ -282,14 +280,6 @@ export function App() {
         rms: number;
       };
       setRms(chunkRms);
-      if (
-        recordingRef.current &&
-        activeTtsSourcesRef.current.size > 0 &&
-        chunkRms >= Math.max(DEFAULT_VAD.vad_energy_threshold * 3, 0.012) &&
-        Date.now() - lastBargeInAtRef.current > 900
-      ) {
-        stopTtsPlayback("speech_detected");
-      }
       if (!recordingRef.current || wsRef.current?.readyState !== WebSocket.OPEN) {
         return;
       }
@@ -306,12 +296,11 @@ export function App() {
     recordingRef.current = true;
     setRecording(true);
     addLog("system", "Микрофон включен, отправка PCM16 активна");
-  }, [addLog, connect, stopTtsPlayback]);
+  }, [addLog, connect]);
 
   const flushAudio = useCallback(() => {
-    stopTtsPlayback("flush_audio");
     wsRef.current?.send(JSON.stringify({ event: "flush_audio" }));
-  }, [stopTtsPlayback]);
+  }, []);
 
   const stopMic = useCallback(() => {
     recordingRef.current = false;
