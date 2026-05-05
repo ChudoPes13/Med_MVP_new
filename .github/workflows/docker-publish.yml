@@ -2,6 +2,11 @@ name: Docker Publish
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Extra Docker tag to publish"
+        required: false
+        default: "manual"
   push:
     branches: [main]
     paths:
@@ -21,6 +26,7 @@ env:
 jobs:
   docker:
     runs-on: ubuntu-24.04
+    timeout-minutes: 360
     permissions:
       contents: read
       packages: write
@@ -31,6 +37,17 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+
+      - name: Validate required secrets
+        shell: bash
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          TTS_MODEL_URL: ${{ secrets.TTS_MODEL_URL }}
+        run: |
+          test -n "${DOCKERHUB_USERNAME}" || { echo "Missing DOCKERHUB_USERNAME"; exit 1; }
+          test -n "${DOCKERHUB_TOKEN}" || { echo "Missing DOCKERHUB_TOKEN"; exit 1; }
+          test -n "${TTS_MODEL_URL}" || { echo "Missing TTS_MODEL_URL"; exit 1; }
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -46,6 +63,7 @@ jobs:
           tags: |
             ${{ env.IMAGE_NAME }}:latest
             ${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.IMAGE_NAME }}:${{ github.event.inputs.tag || 'main' }}
           secrets: |
             hf_token=${{ secrets.HF_TOKEN }}
             tts_model_url=${{ secrets.TTS_MODEL_URL }}
